@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spacial Plane</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            background-color: #0a0a1a;
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 20px #00ffff;
+            transition: transform 2s ease-in-out;
+        }
+        .rotate-effect {
+            transform: rotate(360deg);
+        }
+        .modal-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            background: rgba(0,0,0,0.5);
+        }
+        .modal {
+            background: rgba(10,10,30,0.9);
+            backdrop-filter: blur(5px);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            border: 2px solid #00ffff;
+            pointer-events: all;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        .hidden {
+            display: none;
+        }
+        #superpapi-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            z-index: 200;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            opacity: 0;
+        }
+        #superpapi-modal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-container">
+        <!-- Modals -->
+        <div id="start-modal" class="modal-container">
+            <div class="modal">
+                <h1 class="text-5xl font-bold mb-4 text-cyan-300">DIVERSIONES MARTINEZ</h1>
+                <img src="https://www.wikihow.com/images/0/0d/Fold-Paper-Airplanes-Step-24.jpg" onerror="this.style.display='none'" alt="Avión de Papel" class="w-full h-auto rounded-lg my-4 border-2 border-cyan-500">
+                <button id="start-button" class="w-full bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-3 px-4 rounded-lg text-xl">Iniciar Juego</button>
+            </div>
+        </div>
+        <div id="game-over-modal" class="modal-container hidden"><div class="modal border-red-500"><h2 class="text-5xl font-bold mb-4 text-red-500">GAME OVER</h2><p id="final-score" class="text-2xl mb-6">Puntuación: 0</p><button id="restart-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Jugar de Nuevo</button></div></div>
+        <div id="highscore-modal" class="modal-container hidden"><div class="modal border-yellow-400"><h2 class="text-3xl font-bold mb-2 text-yellow-400">¡NUEVO RÉCORD!</h2><p class="text-gray-300 mb-6">Ingresa tu nombre para el Top de Jugadores.</p><input type="text" id="player-name" placeholder="PILOTO" maxlength="10" class="w-full bg-gray-700 p-3 text-center text-2xl rounded border border-gray-600 mb-4 uppercase"><button id="submit-score-button" class="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">Guardar Puntuación</button></div></div>
+        <div id="preview-modal" class="modal-container hidden"><div class="modal border-green-400"><h2 class="text-3xl font-bold mb-2 text-green-400">¡VICTORIA!</h2><p class="text-gray-300 mb-6">¿Has disfrutado el preview?</p><button id="preview-continue-button" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">Continuar</button></div></div>
+        <div id="payment-modal" class="modal-container hidden"><div class="modal border-yellow-400"><h2 class="text-3xl font-bold mb-2 text-yellow-400">Activar Versión Completa</h2><p class="text-gray-300 mb-6">Se requiere un pago para continuar.</p><div class="text-left"><label class="text-gray-400 text-sm">Compañía</label><p class="font-bold text-lg mb-4">HI FUN Company LLC</p><label class="text-gray-400 text-sm">Número de Tarjeta</label><input type="text" placeholder="4922 1234 5678 9012" class="w-full bg-gray-700 p-2 rounded border border-gray-600 mb-4"><div class="flex gap-4"><div class="w-1/2"><label class="text-gray-400 text-sm">Expiración</label><input type="text" placeholder="MM/YY" class="w-full bg-gray-700 p-2 rounded border border-gray-600"></div><div class="w-1/2"><label class="text-gray-400 text-sm">CVV</label><input type="text" placeholder="123" class="w-full bg-gray-700 p-2 rounded border border-gray-600"></div></div></div><div class="flex gap-4 mt-8"><button id="cancel-payment-button" class="w-1/2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Cancelar</button><button class="w-1/2 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded">Pagar $10.00 USD</button></div></div></div>
+    </div>
+    
+    <div id="in-game-ui" class="absolute top-5 right-5 text-white text-2xl font-bold hidden"><p id="escaped-counter">Escapes: 0 / 5</p></div>
+    <div id="superpapi-modal"><div class="relative"><img src="https://i.imgflip.com/8wrsip.jpg" alt="SUPERPAPI" class="w-64 h-auto rounded-lg shadow-lg border-4 border-yellow-400"><h2 class="absolute bottom-4 left-0 right-0 text-4xl font-extrabold text-white text-center" style="text-shadow: 2px 2px 4px black;">lo estoy logrando</h2></div></div>
+
+    <script>
+        // --- ELEMENTOS DEL DOM ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startModal = document.getElementById('start-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const highscoreModal = document.getElementById('highscore-modal');
+        const previewModal = document.getElementById('preview-modal');
+        const paymentModal = document.getElementById('payment-modal');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const submitScoreButton = document.getElementById('submit-score-button');
+        const previewContinueButton = document.getElementById('preview-continue-button');
+        const cancelPaymentButton = document.getElementById('cancel-payment-button');
+        const inGameUi = document.getElementById('in-game-ui');
+        const escapedCounter = document.getElementById('escaped-counter');
+        const superpapiModal = document.getElementById('superpapi-modal');
+
+        // --- CONFIGURACIÓN DEL CANVAS ---
+        canvas.width = Math.min(window.innerWidth * 0.9, 800);
+        canvas.height = window.innerHeight * 0.9;
+
+        // --- ESTADO DEL JUEGO ---
+        let score, isGameOver, lastTime;
+        let player, bullets, enemies, particles, backgroundObjects, explosions;
+        let enemySpawnTimer, enemiesPassed;
+        let animationFrameId;
+        let lastSuperPapiScore, lastRotationScore;
+
+        // --- CONSTANTES ---
+        const PLAYER_SPEED = 7, BULLET_SPEED = 10, SHOOT_COOLDOWN = 250;
+        let ENEMY_SPAWN_INTERVAL = 1000, ENEMY_BASE_SPEED = 2;
+
+        // --- SONIDO ---
+        let hitSynth, soundEnabled = false;
+        function setupSound() {
+            if (typeof Tone !== 'undefined') {
+                hitSynth = new Tone.PolySynth(Tone.MembraneSynth).toDestination();
+                hitSynth.set({ volume: -10 });
+                soundEnabled = true;
+            }
+        }
+        function playHitSound() {
+            if (soundEnabled && Tone.context.state === 'running') hitSynth.triggerAttackRelease("G2", "8n");
+        }
+        
+        // --- CONTROLES ---
+        const keys = { right: false, left: false };
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+        });
+        
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        submitScoreButton.addEventListener('click', () => {
+            highscoreModal.classList.add('hidden');
+            gameOverModal.classList.remove('hidden');
+        });
+        previewContinueButton.addEventListener('click', () => {
+            previewModal.classList.add('hidden');
+            paymentModal.classList.remove('hidden');
+        });
+        cancelPaymentButton.addEventListener('click', () => {
+            paymentModal.classList.add('hidden');
+            gameOverModal.classList.remove('hidden');
+        });
+
+        function startGame() {
+            score = 0, isGameOver = false, lastTime = 0, enemySpawnTimer = 0, enemiesPassed = 0;
+            lastSuperPapiScore = 0, lastRotationScore = 0;
+            player = { x: canvas.width / 2 - 25, y: canvas.height - 60, width: 50, height: 30, lastShotTime: 0 };
+            bullets = [], enemies = [], particles = [], backgroundObjects = [], explosions = [];
+
+            [startModal, gameOverModal, highscoreModal, previewModal, paymentModal].forEach(m => m.classList.add('hidden'));
+            inGameUi.classList.remove('hidden');
+            
+            if (soundEnabled && Tone.context.state !== 'running') Tone.start();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(timestamp) {
+            if (isGameOver) {
+                if (score >= 1500) {
+                    previewModal.classList.remove('hidden');
+                } else if (score >= 1000) {
+                    highscoreModal.classList.remove('hidden');
+                } else {
+                    gameOverModal.classList.remove('hidden');
+                }
+                finalScoreDisplay.textContent = `Puntuación: ${score}`;
+                return;
+            }
+
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            update(timestamp, deltaTime);
+            draw();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+        
+        function update(timestamp, deltaTime) {
+            // Dificultad
+            if (score >= 500) { ENEMY_SPAWN_INTERVAL = 500; ENEMY_BASE_SPEED = 4; }
+            else if (score >= 200) { ENEMY_SPAWN_INTERVAL = 700; ENEMY_BASE_SPEED = 3; }
+            else { ENEMY_SPAWN_INTERVAL = 1000; ENEMY_BASE_SPEED = 2; }
+            escapedCounter.textContent = `Escapes: ${enemiesPassed} / 5`;
+
+            // Rotación del tablero
+            if (score >= lastRotationScore + 300 && score > 0) {
+                lastRotationScore += 300;
+                canvas.classList.add('rotate-effect');
+                canvas.addEventListener('transitionend', () => canvas.classList.remove('rotate-effect'), { once: true });
+            }
+
+            // Jugador y estela
+            if (keys.right && player.x < canvas.width - player.width) {
+                player.x += PLAYER_SPEED;
+                particles.push({ x: player.x, y: player.y, size: Math.random() * 2 + 1, life: 30 });
+            }
+            if (keys.left && player.x > 0) {
+                player.x -= PLAYER_SPEED;
+                particles.push({ x: player.x + player.width, y: player.y, size: Math.random() * 2 + 1, life: 30 });
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].life--;
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Disparos
+            if (timestamp - player.lastShotTime > SHOOT_COOLDOWN) {
+                const cannons = Math.min(1 + Math.floor(score / 50), 3);
+                if (cannons === 1) bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y - player.height, width: 5, height: 15 });
+                else if (cannons === 2) {
+                    bullets.push({ x: player.x + player.width * 0.2, y: player.y - player.height * 0.8, width: 5, height: 15 });
+                    bullets.push({ x: player.x + player.width * 0.8 - 5, y: player.y - player.height * 0.8, width: 5, height: 15 });
+                } else {
+                    bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y - player.height, width: 5, height: 15 });
+                    bullets.push({ x: player.x, y: player.y - player.height * 0.6, width: 5, height: 15 });
+                    bullets.push({ x: player.x + player.width - 5, y: player.y - player.height * 0.6, width: 5, height: 15 });
+                }
+                player.lastShotTime = timestamp;
+            }
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= BULLET_SPEED;
+                if (bullets[i].y < 0) bullets.splice(i, 1);
+            }
+
+            // Enemigos
+            enemySpawnTimer += deltaTime;
+            if (enemySpawnTimer > ENEMY_SPAWN_INTERVAL) {
+                enemies.push({ x: Math.random() * (canvas.width - 40), y: -40, width: 40, height: 40, speed: Math.random() * 2 + ENEMY_BASE_SPEED });
+                enemySpawnTimer = 0;
+            }
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].y += enemies[i].speed;
+                if (enemies[i].y > canvas.height) {
+                    enemiesPassed++;
+                    if (enemiesPassed >= 5) isGameOver = true;
+                    enemies.splice(i, 1);
+                }
+            }
+
+            // Fondo cósmico
+            updateBackground();
+            
+            // Explosiones
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                for (let j = explosions[i].particles.length - 1; j >= 0; j--) {
+                    const p = explosions[i].particles[j];
+                    p.x += p.vx; p.y += p.vy; p.life--;
+                    if (p.life <= 0) explosions[i].particles.splice(j, 1);
+                }
+                if (explosions[i].particles.length === 0) explosions.splice(i, 1);
+            }
+
+            checkCollisions();
+            if (score >= 1500) isGameOver = true;
+        }
+
+        function updateBackground() {
+            const stage = Math.floor(score / 500) % 3;
+            let type;
+            if (stage === 0) type = 'star';
+            else if (stage === 1) type = 'planet';
+            else type = 'asteroid';
+
+            if (backgroundObjects.length < 50) {
+                backgroundObjects.push({
+                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                    speed: Math.random() * 2 + 1, size: Math.random() * 3 + 1, type: type
+                });
+            }
+            backgroundObjects.forEach(obj => {
+                obj.y += obj.speed;
+                if (obj.y > canvas.height) {
+                    obj.y = 0;
+                    obj.x = Math.random() * canvas.width;
+                    obj.type = type; // Actualizar tipo al reaparecer
+                }
+            });
+        }
+
+        function createExplosion(x, y) {
+            const explosionParticles = [];
+            for (let i = 0; i < 20; i++) {
+                explosionParticles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, size: Math.random() * 3 + 1, life: 40 });
+            }
+            explosions.push({ particles: explosionParticles });
+        }
+        
+        function showSuperPapi() {
+            superpapiModal.classList.add('show');
+            setTimeout(() => superpapiModal.classList.remove('show'), 1000); // Dura 1 segundo
+        }
+
+        function checkCollisions() {
+            for (const enemy of enemies) {
+                if (player.x < enemy.x + enemy.width && player.x + player.width > enemy.x &&
+                    player.y - player.height < enemy.y + enemy.height && player.y > enemy.y) {
+                    isGameOver = true; return;
+                }
+            }
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    if (bullets[i] && enemies[j] &&
+                        bullets[i].x < enemies[j].x + enemies[j].width && bullets[i].x + bullets[i].width > enemies[j].x &&
+                        bullets[i].y < enemies[j].y + enemies[j].height && bullets[i].y + bullets[i].height > enemies[j].y) {
+                        
+                        createExplosion(enemies[j].x + enemies[j].width / 2, enemies[j].y + enemies[j].height / 2);
+                        bullets.splice(i, 1);
+                        enemies.splice(j, 1);
+                        score += 10;
+                        playHitSound();
+
+                        if (score >= lastSuperPapiScore + 100) {
+                            lastSuperPapiScore += 100;
+                            showSuperPapi();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        function draw() {
+            // Fondo
+            backgroundObjects.forEach(obj => {
+                ctx.fillStyle = 'white';
+                if (obj.type === 'planet') {
+                    ctx.fillStyle = `hsl(${obj.x % 360}, 50%, 70%)`;
+                    ctx.beginPath();
+                    ctx.arc(obj.x, obj.y, obj.size * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (obj.type === 'asteroid') {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(obj.x, obj.y, obj.size * 2, obj.size * 2);
+                } else { // Star
+                    ctx.fillRect(obj.x, obj.y, obj.size, obj.size);
+                }
+            });
+            // Estela
+            particles.forEach(p => {
+                ctx.fillStyle = `rgba(0, 255, 255, ${p.life / 30})`;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+            // Explosiones
+            explosions.forEach(exp => {
+                exp.particles.forEach(p => {
+                    ctx.fillStyle = `rgba(255, 50, 50, ${p.life / 40})`;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                });
+            });
+            // Jugador
+            ctx.fillStyle = '#00ffff';
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(player.x + player.width / 2, player.y - player.height);
+            ctx.lineTo(player.x + player.width, player.y);
+            ctx.closePath();
+            ctx.fill();
+            // Balas y enemigos
+            ctx.fillStyle = '#ff00ff';
+            bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+            ctx.fillStyle = '#ff3333';
+            enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
+            // Puntuación
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 40);
+        }
+
+        setupSound();
+    </script>
+</body>
+</html>
